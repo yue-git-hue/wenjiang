@@ -52,6 +52,13 @@ db.exec(`
     result_path TEXT,
     created_at  TEXT DEFAULT (datetime('now','localtime'))
   );
+
+  CREATE TABLE IF NOT EXISTS user_templates (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER UNIQUE NOT NULL,
+    config_json TEXT NOT NULL,
+    updated_at TEXT DEFAULT (datetime('now','localtime'))
+  );
 `);
 
 module.exports = db;
