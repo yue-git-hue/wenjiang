@@ -11,6 +11,7 @@ const path     = require("path");
 const fs       = require("fs");
 const multer   = require("multer");
 const mammoth  = require("mammoth");
+const WordExtractor = require("word-extractor");
 const { Document, Packer, Paragraph, TextRun, HeadingLevel,
         AlignmentType, LevelFormat } = require("docx");
 const db = require("./db");
@@ -107,6 +108,52 @@ const TEMPLATES = {
   },
 };
 
+// ── 用户自定义配置默认值 ──────────────────────────────
+const DEFAULT_CUSTOM = {
+  enabled: false,           // 是否启用自定义（false=用内置模板）
+  fontBody: "",             // 正文字体（空=用模板默认）
+  sizeBody: 0,              // 正文字号（半磅，24=12pt，0=用默认）
+  fontHeading: "",          // 标题字体
+  h1Size: 0,                // 一级标题字号
+  h1Bold: true,
+  h1Align: "center",        // center / left / right
+  h2Size: 0,
+  h2Bold: true,
+  h2Align: "left",
+  h3Size: 0,
+  h3Bold: true,
+  h3Align: "left",
+  lineSpacing: 0,           // 行间距（磅×20，360=1.5倍，0=用默认）
+  marginTop: 0,             // 页边距（DXA，1440=1英寸，0=用默认）
+  marginBottom: 0,
+  marginLeft: 0,
+  marginRight: 0,
+  firstLineIndent: true,    // 正文首行缩进
+};
+
+// 把用户自定义配置合并到模板（用户设置的字段优先）
+function mergeCustom(tpl, custom) {
+  if (!custom || !custom.enabled) return tpl;
+  const alignMap = { center: AlignmentType.CENTER, left: AlignmentType.LEFT, right: AlignmentType.RIGHT };
+  return {
+    ...tpl,
+    fontBody:    custom.fontBody    || tpl.fontBody,
+    sizeBody:    custom.sizeBody    || tpl.sizeBody,
+    fontHeading: custom.fontHeading || tpl.fontHeading,
+    lineSpacing: custom.lineSpacing || tpl.lineSpacing,
+    firstLineIndent: custom.firstLineIndent !== undefined ? custom.firstLineIndent : true,
+    h1: { size: custom.h1Size||tpl.h1.size, bold: custom.h1Bold!==undefined?custom.h1Bold:tpl.h1.bold, align: alignMap[custom.h1Align]||tpl.h1.align },
+    h2: { size: custom.h2Size||tpl.h2.size, bold: custom.h2Bold!==undefined?custom.h2Bold:tpl.h2.bold, align: alignMap[custom.h2Align]||tpl.h2.align },
+    h3: { size: custom.h3Size||tpl.h3.size, bold: custom.h3Bold!==undefined?custom.h3Bold:tpl.h3.bold, align: alignMap[custom.h3Align]||tpl.h3.align },
+    margin: {
+      top:    custom.marginTop    || tpl.margin.top,
+      bottom: custom.marginBottom || tpl.margin.bottom,
+      left:   custom.marginLeft   || tpl.margin.left,
+      right:  custom.marginRight  || tpl.margin.right,
+    },
+  };
+}
+
 // ── 鉴权中间件 ────────────────────────────────────────
 function authUser(req, res, next) {
   const token = (req.headers.authorization || "").replace("Bearer ", "");
@@ -190,10 +237,19 @@ function checkAndDeduct(userId) {
   return { ok: true };
 }
 
-// ── 提取 Word 文本结构 ────────────────────────────────
-async function extractDocxStructure(filePath) {
-  const result = await mammoth.extractRawText({ path: filePath });
-  return result.value;
+// ── 提取 Word 文本结构（支持 .doc 和 .docx）────────────
+async function extractDocxStructure(filePath, originalName) {
+  const ext = (originalName || filePath).split(".").pop().toLowerCase();
+  if (ext === "doc") {
+    // 旧版 .doc 格式
+    const extractor = new WordExtractor();
+    const doc = await extractor.extract(filePath);
+    return doc.getBody();
+  } else {
+    // .docx 格式
+    const result = await mammoth.extractRawText({ path: filePath });
+    return result.value;
+  }
 }
 
 // ── 调用 Claude 分析并重排文档结构 ────────────────────
@@ -251,12 +307,14 @@ ${rawText.slice(0, 8000)}`;
 }
 
 // ── 根据结构和模板生成 Word 文档 ──────────────────────
-async function buildDocx(structure, templateKey) {
-  const tpl = TEMPLATES[templateKey] || TEMPLATES.business;
+async function buildDocx(structure, templateKey, customConfig) {
+  const baseTpl = TEMPLATES[templateKey] || TEMPLATES.business;
+  const tpl = mergeCustom(baseTpl, customConfig);
 
   const children = structure.map(item => {
     const num = item.numbering ? item.numbering + " " : "";
     const fullText = num + (item.text || "");
+    const indent = tpl.firstLineIndent !== false ? { firstLine: 480 } : {};
 
     if (item.type === "h1") {
       return new Paragraph({
@@ -289,10 +347,9 @@ async function buildDocx(structure, templateKey) {
         children: [new TextRun({ text: fullText, font: tpl.fontBody, size: tpl.sizeBody })],
       });
     }
-    // body
     return new Paragraph({
       spacing: { line: tpl.lineSpacing },
-      indent: { firstLine: 480 },
+      indent,
       children: [new TextRun({ text: fullText, font: tpl.fontBody, size: tpl.sizeBody })],
     });
   });
@@ -312,6 +369,29 @@ async function buildDocx(structure, templateKey) {
   return await Packer.toBuffer(doc);
 }
 
+// ── 用户自定义模板配置接口 ────────────────────────────
+app.get("/api/my-template", authUser, (req, res) => {
+  const row = db.prepare("SELECT config_json FROM user_templates WHERE user_id=?").get(req.user.id);
+  res.json(row ? { ...DEFAULT_CUSTOM, ...JSON.parse(row.config_json) } : DEFAULT_CUSTOM);
+});
+
+app.post("/api/my-template", authUser, (req, res) => {
+  const config = { ...DEFAULT_CUSTOM, ...req.body };
+  const json = JSON.stringify(config);
+  const exists = db.prepare("SELECT id FROM user_templates WHERE user_id=?").get(req.user.id);
+  if (exists) {
+    db.prepare("UPDATE user_templates SET config_json=?, updated_at=datetime('now','localtime') WHERE user_id=?").run(json, req.user.id);
+  } else {
+    db.prepare("INSERT INTO user_templates(user_id, config_json) VALUES(?,?)").run(req.user.id, json);
+  }
+  res.json({ ok: true });
+});
+
+app.delete("/api/my-template", authUser, (req, res) => {
+  db.prepare("DELETE FROM user_templates WHERE user_id=?").run(req.user.id);
+  res.json({ ok: true });
+});
+
 // ── 上传并处理文件 ─────────────────────────────────────
 app.post("/api/process", authUser, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "请上传文件" });
@@ -327,21 +407,25 @@ app.post("/api/process", authUser, upload.single("file"), async (req, res) => {
     return res.status(403).json({ error: check.error });
   }
 
+  // 读取用户自定义模板配置
+  const customRow = db.prepare("SELECT config_json FROM user_templates WHERE user_id=?").get(req.user.id);
+  const customConfig = customRow ? { ...DEFAULT_CUSTOM, ...JSON.parse(customRow.config_json) } : null;
+
   // 记录文档
   const docId = db.prepare("INSERT INTO documents(user_id,file_name,template,status) VALUES(?,?,?,?)")
     .run(req.user.id, req.file.originalname, templateKey, "processing").lastInsertRowid;
 
   try {
     // 提取文本
-    const rawText = await extractDocxStructure(req.file.path);
+    const rawText = await extractDocxStructure(req.file.path, req.file.originalname);
     if (!rawText || rawText.trim().length < 10) throw new Error("无法从文件中提取文本，请确认文件内容不为空");
 
     // AI 分析结构
     const structure = await analyzeWithClaude(rawText, templateKey);
     if (!Array.isArray(structure) || structure.length === 0) throw new Error("文档结构分析失败");
 
-    // 生成排版后的 Word
-    const buffer = await buildDocx(structure, templateKey);
+    // 生成排版后的 Word（传入用户自定义配置）
+    const buffer = await buildDocx(structure, templateKey, customConfig);
 
     // 保存输出文件
     const outName = `wenjiang_${docId}_${Date.now()}.docx`;
