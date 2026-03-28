@@ -52,6 +52,8 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
 .hist-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hist-meta{font-size:11px;color:#94A3B8;margin-top:2px}
 .hist-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.cfg-inp{width:100%;padding:7px 10px;border:1px solid #E2E8F0;border-radius:7px;font-size:12px;font-family:inherit;outline:none;color:#0F172A;background:#fff}
+.cfg-inp:focus{border-color:#2563EB}
 .hs-done{background:#F0FDF4;color:#16A34A}
 .hs-failed{background:#FEF2F2;color:#DC2626}
 .hs-processing{background:#EFF6FF;color:#2563EB}
@@ -78,6 +80,7 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
   <button class="tab" id="t1" onclick="go(1)">② 排版预览</button>
   <button class="tab" onclick="go(2)">③ 历史记录</button>
   <button class="tab" onclick="go(3)">订阅</button>
+  <button class="tab" onclick="go(4)">⚙️ 格式配置</button>
   <div class="user-info">
     <span id="user-phone" style="color:#475569;font-size:12px"></span>
     <span class="status-badge" id="user-status"></span>
@@ -245,6 +248,176 @@ body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background
       </div>
     </div>
   </div>
+
+  <!-- ⑤ 格式配置页 -->
+  <div class="page" id="p4">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <div style="font-size:16px;font-weight:700;margin-bottom:4px">自定义排版格式</div>
+          <div style="font-size:13px;color:#64748B">设置后优先于模板默认值，未填写的项目使用模板默认值</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="resetTplConfig()" style="color:#DC2626;border-color:#FECACA">恢复默认</button>
+          <button class="btn pri" onclick="saveTplConfig()">💾 保存配置</button>
+        </div>
+      </div>
+
+      <!-- 启用开关 -->
+      <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <input type="checkbox" id="cfg-enabled" style="width:16px;height:16px;cursor:pointer" onchange="toggleCustom()">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#1E40AF">启用自定义格式</div>
+          <div style="font-size:12px;color:#64748B">勾选后，以下设置将覆盖所选模板的默认值</div>
+        </div>
+      </div>
+
+      <div id="cfg-body" style="opacity:0.4;pointer-events:none;transition:all 0.2s">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+          <!-- 字体设置 -->
+          <div style="background:#F8FAFC;border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:14px">🔤 字体设置</div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">正文字体</label>
+              <select class="cfg-inp" id="cfg-fontBody">
+                <option value="">使用模板默认</option>
+                <option value="宋体">宋体</option>
+                <option value="仿宋_GB2312">仿宋</option>
+                <option value="黑体">黑体</option>
+                <option value="楷体">楷体</option>
+                <option value="微软雅黑">微软雅黑</option>
+              </select>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">正文字号</label>
+              <select class="cfg-inp" id="cfg-sizeBody">
+                <option value="0">使用模板默认</option>
+                <option value="20">10pt</option>
+                <option value="22">11pt</option>
+                <option value="24">12pt（常用）</option>
+                <option value="26">13pt</option>
+                <option value="28">14pt</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">标题字体</label>
+              <select class="cfg-inp" id="cfg-fontHeading">
+                <option value="">使用模板默认</option>
+                <option value="黑体">黑体</option>
+                <option value="宋体">宋体</option>
+                <option value="微软雅黑">微软雅黑</option>
+                <option value="楷体">楷体</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 间距设置 -->
+          <div style="background:#F8FAFC;border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:14px">↕️ 间距设置</div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">行间距</label>
+              <select class="cfg-inp" id="cfg-lineSpacing">
+                <option value="0">使用模板默认</option>
+                <option value="240">单倍行距</option>
+                <option value="360">1.5倍行距（常用）</option>
+                <option value="480">2倍行距</option>
+                <option value="560">固定28磅（公文）</option>
+              </select>
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">正文首行缩进</label>
+              <select class="cfg-inp" id="cfg-firstLine">
+                <option value="true">缩进2字符（默认）</option>
+                <option value="false">不缩进</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">页边距</label>
+              <select class="cfg-inp" id="cfg-margin">
+                <option value="default">使用模板默认</option>
+                <option value="normal">标准（上下2.54 左右3.17cm）</option>
+                <option value="narrow">窄（四边1.27cm）</option>
+                <option value="official">公文（上3.7 下3.5 左2.8 右2.6）</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 一级标题 -->
+          <div style="background:#F8FAFC;border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:14px">H1 一级标题</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">字号</label>
+                <select class="cfg-inp" id="cfg-h1Size">
+                  <option value="0">使用默认</option>
+                  <option value="28">14pt</option>
+                  <option value="32">16pt</option>
+                  <option value="36">18pt</option>
+                  <option value="40">20pt</option>
+                  <option value="44">22pt</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">对齐</label>
+                <select class="cfg-inp" id="cfg-h1Align">
+                  <option value="">使用默认</option>
+                  <option value="center">居中</option>
+                  <option value="left">左对齐</option>
+                </select>
+              </div>
+              <div style="grid-column:span 2">
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">加粗</label>
+                <select class="cfg-inp" id="cfg-h1Bold">
+                  <option value="">使用默认</option>
+                  <option value="true">加粗</option>
+                  <option value="false">不加粗</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- 二级标题 -->
+          <div style="background:#F8FAFC;border-radius:10px;padding:16px">
+            <div style="font-size:13px;font-weight:700;margin-bottom:14px">H2 二级标题</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">字号</label>
+                <select class="cfg-inp" id="cfg-h2Size">
+                  <option value="0">使用默认</option>
+                  <option value="24">12pt</option>
+                  <option value="26">13pt</option>
+                  <option value="28">14pt</option>
+                  <option value="32">16pt</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">对齐</label>
+                <select class="cfg-inp" id="cfg-h2Align">
+                  <option value="">使用默认</option>
+                  <option value="left">左对齐</option>
+                  <option value="center">居中</option>
+                </select>
+              </div>
+              <div style="grid-column:span 2">
+                <label style="font-size:12px;color:#475569;display:block;margin-bottom:4px">加粗</label>
+                <select class="cfg-inp" id="cfg-h2Bold">
+                  <option value="">使用默认</option>
+                  <option value="true">加粗</option>
+                  <option value="false">不加粗</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div id="cfg-saved-tip" style="display:none;background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px;padding:12px 16px;margin-top:16px;font-size:13px;color:#166534;font-weight:600">
+          ✓ 配置已保存，下次处理文件将按此设置排版
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <div class="toast" id="toast"></div>
@@ -279,6 +452,7 @@ function go(i) {
   document.querySelectorAll(".page").forEach((p,j) => p.className = "page" + (j===i?" on":""));
   document.querySelectorAll(".tab").forEach((t,j) => t.className = "tab" + (j===i?" on":""));
   if (i === 2) loadHistory();
+  if (i === 4) loadTplConfig();
 }
 
 function logout() {
@@ -553,7 +727,96 @@ function showPaySuccess() {
   document.getElementById("pay-success").style.display = "block";
 }
 
+// ── 格式配置 ──────────────────────────────────────────
+const MARGIN_PRESETS = {
+  default:  null,
+  normal:   { top: 1440, bottom: 1440, left: 1814, right: 1814 },
+  narrow:   { top: 720,  bottom: 720,  left: 720,  right: 720  },
+  official: { top: 2126, bottom: 2006, left: 1606, right: 1490 },
+};
+
+function toggleCustom() {
+  const enabled = document.getElementById("cfg-enabled").checked;
+  const body = document.getElementById("cfg-body");
+  body.style.opacity = enabled ? "1" : "0.4";
+  body.style.pointerEvents = enabled ? "auto" : "none";
+}
+
+async function loadTplConfig() {
+  try {
+    const r = await fetch("/api/my-template", { headers: { Authorization: "Bearer " + TOKEN } });
+    const cfg = await r.json();
+    document.getElementById("cfg-enabled").checked = !!cfg.enabled;
+    toggleCustom();
+    const g = (id, val) => { const el = document.getElementById(id); if(el && val !== undefined && val !== null) el.value = String(val); };
+    g("cfg-fontBody",    cfg.fontBody    || "");
+    g("cfg-sizeBody",    cfg.sizeBody    || 0);
+    g("cfg-fontHeading", cfg.fontHeading || "");
+    g("cfg-lineSpacing", cfg.lineSpacing || 0);
+    g("cfg-firstLine",   cfg.firstLineIndent !== undefined ? String(cfg.firstLineIndent) : "true");
+    g("cfg-h1Size",      cfg.h1Size  || 0);
+    g("cfg-h1Align",     cfg.h1Align || "");
+    g("cfg-h1Bold",      cfg.h1Bold  !== undefined ? String(cfg.h1Bold) : "");
+    g("cfg-h2Size",      cfg.h2Size  || 0);
+    g("cfg-h2Align",     cfg.h2Align || "");
+    g("cfg-h2Bold",      cfg.h2Bold  !== undefined ? String(cfg.h2Bold) : "");
+    const marginKey = Object.keys(MARGIN_PRESETS).find(k => {
+      if (k === "default") return false;
+      const p = MARGIN_PRESETS[k];
+      return p && p.top === cfg.marginTop && p.left === cfg.marginLeft;
+    }) || "default";
+    g("cfg-margin", marginKey);
+  } catch(e) {}
+}
+
+async function saveTplConfig() {
+  const enabled = document.getElementById("cfg-enabled").checked;
+  const marginKey = document.getElementById("cfg-margin").value;
+  const marginPreset = MARGIN_PRESETS[marginKey] || {};
+  const h1BoldVal = document.getElementById("cfg-h1Bold").value;
+  const h2BoldVal = document.getElementById("cfg-h2Bold").value;
+  const cfg = {
+    enabled,
+    fontBody:        document.getElementById("cfg-fontBody").value,
+    sizeBody:        Number(document.getElementById("cfg-sizeBody").value),
+    fontHeading:     document.getElementById("cfg-fontHeading").value,
+    lineSpacing:     Number(document.getElementById("cfg-lineSpacing").value),
+    firstLineIndent: document.getElementById("cfg-firstLine").value !== "false",
+    h1Size:  Number(document.getElementById("cfg-h1Size").value),
+    h1Align: document.getElementById("cfg-h1Align").value,
+    h1Bold:  h1BoldVal === "" ? undefined : h1BoldVal === "true",
+    h2Size:  Number(document.getElementById("cfg-h2Size").value),
+    h2Align: document.getElementById("cfg-h2Align").value,
+    h2Bold:  h2BoldVal === "" ? undefined : h2BoldVal === "true",
+    marginTop:    marginPreset.top    || 0,
+    marginBottom: marginPreset.bottom || 0,
+    marginLeft:   marginPreset.left   || 0,
+    marginRight:  marginPreset.right  || 0,
+  };
+  try {
+    await fetch("/api/my-template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN },
+      body: JSON.stringify(cfg),
+    });
+    const tip = document.getElementById("cfg-saved-tip");
+    tip.style.display = "block";
+    setTimeout(() => tip.style.display = "none", 3000);
+    toast("格式配置已保存");
+  } catch(e) { toast("保存失败", false); }
+}
+
+async function resetTplConfig() {
+  if (!confirm("恢复所有格式配置为模板默认值？")) return;
+  try {
+    await fetch("/api/my-template", { method: "DELETE", headers: { Authorization: "Bearer " + TOKEN } });
+    await loadTplConfig();
+    toast("已恢复默认");
+  } catch(e) { toast("重置失败", false); }
+}
+
 loadUser();
+loadTplConfig();
 </script>
 </body>
 </html>
