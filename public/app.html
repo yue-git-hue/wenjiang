@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文匠 · 文档智能排版</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'PingFang SC','Microsoft YaHei',system-ui,sans-serif;background:#F8FAFC;color:#0F172A;min-height:100vh}
+.hdr{background:#fff;border-bottom:1px solid #E2E8F0;padding:0 24px;display:flex;align-items:center;position:sticky;top:0;z-index:10;box-shadow:0 1px 3px rgba(0,0,0,0.06);height:56px}
+.logo{font-size:18px;font-weight:800;color:#2563EB;margin-right:24px;letter-spacing:-0.02em}
+.logo span{color:#0F172A}
+.tab{padding:17px 12px;background:transparent;border:none;border-bottom:2px solid transparent;color:#475569;cursor:pointer;font-size:13px;font-family:inherit;white-space:nowrap}
+.tab.on{border-bottom-color:#2563EB;color:#2563EB;font-weight:700}
+.user-info{margin-left:auto;display:flex;align-items:center;gap:10px;font-size:13px}
+.status-badge{padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600}
+.s-active{background:#F0FDF4;color:#16A34A;border:1px solid #86EFAC}
+.s-inactive{background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5}
+.s-expired{background:#FEF2F2;color:#DC2626;border:1px solid #FCA5A5}
+.main{max-width:860px;margin:0 auto;padding:32px 20px}
+.page{display:none}.page.on{display:block}
+.btn{padding:9px 20px;border-radius:8px;border:1px solid #E2E8F0;background:#fff;color:#475569;cursor:pointer;font-size:13px;font-family:inherit;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all 0.15s}
+.btn:hover{background:#F1F5F9}.btn.pri{background:#2563EB;border-color:#2563EB;color:#fff}.btn.pri:hover{background:#1D4ED8}
+.btn.sm{padding:5px 12px;font-size:12px}.btn.full{width:100%;justify-content:center}
+.card{background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:28px;margin-bottom:20px}
+.dz{border:2px dashed #CBD5E1;border-radius:12px;padding:60px 32px;text-align:center;cursor:pointer;background:#F8FAFC;transition:all 0.2s}
+.dz:hover,.dz.drag{border-color:#2563EB;background:#EFF6FF}
+.tpl-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px}
+.tpl{border:2px solid #E2E8F0;border-radius:10px;padding:16px;cursor:pointer;transition:all 0.15s}
+.tpl:hover{border-color:#93C5FD}
+.tpl.on{border-color:#2563EB;background:#EFF6FF}
+.tpl-name{font-size:14px;font-weight:700;margin-bottom:4px}
+.tpl-desc{font-size:12px;color:#64748B}
+.spin{width:20px;height:20px;border:3px solid #2563EB;border-top-color:transparent;border-radius:50%;animation:sp 0.8s linear infinite;display:inline-block}
+@keyframes sp{to{transform:rotate(360deg)}}
+.result-box{background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;padding:24px;text-align:center}
+.struct-item{display:flex;align-items:baseline;gap:8px;padding:5px 10px;border-radius:6px;font-size:13px;margin-bottom:2px}
+.struct-item:hover{background:#F1F5F9}
+.struct-h1{font-weight:800;font-size:15px;color:#1E40AF;padding-left:0}
+.struct-h2{font-weight:700;font-size:14px;color:#374151;padding-left:16px}
+.struct-h3{font-weight:600;font-size:13px;color:#475569;padding-left:32px}
+.struct-body{color:#64748B;padding-left:48px;font-size:12px}
+.struct-list{color:#64748B;padding-left:56px;font-size:12px}
+.struct-tag{font-size:10px;padding:1px 6px;border-radius:3px;flex-shrink:0}
+.tag-h1{background:#DBEAFE;color:#1E40AF}
+.tag-h2{background:#E0E7FF;color:#4338CA}
+.tag-h3{background:#F3E8FF;color:#7C3AED}
+.tag-body{background:#F1F5F9;color:#64748B}
+.hist-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;border:1px solid #E2E8F0;margin-bottom:8px;background:#fff}
+.hist-icon{width:36px;height:36px;background:#EFF6FF;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.hist-info{flex:1;min-width:0}
+.hist-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-meta{font-size:11px;color:#94A3B8;margin-top:2px}
+.hist-status{font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px}
+.hs-done{background:#F0FDF4;color:#16A34A}
+.hs-failed{background:#FEF2F2;color:#DC2626}
+.hs-processing{background:#EFF6FF;color:#2563EB}
+.plan-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px}
+.plan{background:#fff;border:2px solid #E2E8F0;border-radius:12px;padding:20px;text-align:center;cursor:pointer;transition:all 0.15s}
+.plan:hover{border-color:#93C5FD}
+.plan.hot{border-color:#2563EB}
+.plan-name{font-size:13px;font-weight:600;margin-bottom:8px;color:#475569}
+.plan-price{font-size:28px;font-weight:800;color:#2563EB;margin-bottom:4px}
+.plan-price span{font-size:13px;color:#94A3B8;font-weight:400}
+.plan-save{font-size:11px;color:#16A34A;font-weight:600;margin-bottom:14px}
+.plan-btn{display:block;width:100%;padding:8px 0;border-radius:6px;border:1px solid #CBD5E1;background:#fff;color:#475569;cursor:pointer;font-size:12px;font-weight:600;font-family:inherit;transition:all 0.15s}
+.plan-btn:hover{background:#F1F5F9}
+.plan-btn-active{background:#2563EB;color:#fff;border-color:#2563EB}
+.pay-box{display:none;background:#fff;border:1px solid #E2E8F0;border-radius:14px;padding:28px;text-align:center;margin-bottom:24px}
+.toast{position:fixed;top:16px;right:16px;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:600;z-index:999;display:none}
+@media(max-width:768px){.tpl-grid{grid-template-columns:1fr}.plan-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="hdr">
+  <div class="logo">文<span>匠</span></div>
+  <button class="tab on" onclick="go(0)">① 上传文件</button>
+  <button class="tab" id="t1" onclick="go(1)">② 排版预览</button>
+  <button class="tab" onclick="go(2)">③ 历史记录</button>
+  <button class="tab" onclick="go(3)">订阅</button>
+  <div class="user-info">
+    <span id="user-phone" style="color:#475569;font-size:12px"></span>
+    <span class="status-badge" id="user-status"></span>
+    <button class="btn sm" onclick="logout()">退出</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 状态栏 -->
+  <div id="bar-active" style="display:none;background:#F0FDF4;border:1px solid #86EFAC;border-radius:10px;padding:12px 20px;margin-bottom:16px;display:none;align-items:center;gap:12px">
+    <span style="font-size:18px">✅</span>
+    <span style="font-size:13px;color:#166534;flex:1">已订阅 · 本月已处理 <b id="bar-used">0</b> 份，剩余 <b id="bar-remaining">500</b> 份 · 到期：<b id="bar-expires">—</b></span>
+    <button class="btn sm" style="border-color:#86EFAC;color:#166534;background:#DCFCE7" onclick="go(3)">管理订阅</button>
+  </div>
+  <div id="trial-bar" style="display:none;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:12px 20px;margin-bottom:16px;align-items:center;gap:12px">
+    <span style="font-size:18px">🎁</span>
+    <span style="font-size:13px;color:#1E40AF;flex:1">免费试用：剩余 <b id="trial-count">3</b> 次（共3次）</span>
+    <button class="btn pri sm" onclick="go(3)">立即订阅 →</button>
+  </div>
+  <div id="paywall" style="display:none;background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:40px;text-align:center;margin-bottom:20px">
+    <div style="font-size:36px;margin-bottom:14px">🔒</div>
+    <div style="font-size:18px;font-weight:700;margin-bottom:8px">免费额度已用完</div>
+    <div style="font-size:14px;color:#475569;margin-bottom:20px">订阅后每月可处理 500 份文件</div>
+    <button class="btn pri" onclick="go(3)">查看套餐 →</button>
+  </div>
+
+  <!-- ① 上传页 -->
+  <div class="page on" id="p0">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">选择排版模板</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:16px">根据文件用途选择合适的排版风格</div>
+      <div class="tpl-grid">
+        <div class="tpl on" id="tpl-business" onclick="selectTpl('business')">
+          <div class="tpl-name">📋 通用商务文档</div>
+          <div class="tpl-desc">黑体标题 · 宋体正文 · 1.5倍行距，适合方案书、报告、商务文件</div>
+        </div>
+        <div class="tpl" id="tpl-official" onclick="selectTpl('official')">
+          <div class="tpl-name">🏛️ 政府公文格式</div>
+          <div class="tpl-desc">依据GB/T 9704国标，仿宋正文，适合公文、通知、请示</div>
+        </div>
+        <div class="tpl" id="tpl-contract" onclick="selectTpl('contract')">
+          <div class="tpl-name">📝 合同协议格式</div>
+          <div class="tpl-desc">宋体全文，条款编号规范，适合各类合同、协议文件</div>
+        </div>
+        <div class="tpl" id="tpl-technical" onclick="selectTpl('technical')">
+          <div class="tpl-name">🔧 技术报告格式</div>
+          <div class="tpl-desc">黑体标题+数字编号，宋体正文，适合技术文档、研究报告</div>
+        </div>
+      </div>
+      <div class="dz" id="dz" onclick="document.getElementById('fi').click()">
+        <div style="font-size:40px;margin-bottom:12px">📄</div>
+        <div style="font-size:15px;font-weight:600;margin-bottom:6px" id="dzt">拖拽上传 或 点击选择文件</div>
+        <div style="font-size:13px;color:#94A3B8;margin-bottom:16px">支持 .docx 格式 · 最大 20MB</div>
+        <button class="btn pri" onclick="event.stopPropagation();document.getElementById('fi').click()">选择文件</button>
+      </div>
+      <input type="file" id="fi" accept=".docx,.doc" style="display:none" onchange="handleFile(this.files[0]);this.value=''">
+    </div>
+    <div id="proc-status" style="display:none" class="card" style="text-align:center">
+      <div style="display:flex;align-items:center;gap:12px;justify-content:center;padding:20px 0">
+        <div class="spin"></div>
+        <div id="proc-msg" style="font-size:14px;color:#475569">正在处理，请稍候…</div>
+      </div>
+    </div>
+    <div id="err-box" style="display:none;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:12px 16px;font-size:13px;color:#DC2626;margin-top:12px"></div>
+  </div>
+
+  <!-- ② 排版预览页 -->
+  <div class="page" id="p1">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+        <div>
+          <div style="font-size:16px;font-weight:700" id="res-title">排版结果</div>
+          <div style="font-size:13px;color:#64748B;margin-top:2px" id="res-sub">—</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" onclick="go(0)">重新上传</button>
+          <button class="btn pri" id="dl-btn" onclick="downloadResult()">⬇ 下载 Word</button>
+        </div>
+      </div>
+      <!-- 结构预览 -->
+      <div style="background:#F8FAFC;border-radius:8px;padding:16px;max-height:500px;overflow-y:auto" id="struct-preview"></div>
+    </div>
+  </div>
+
+  <!-- ③ 历史记录页 -->
+  <div class="page" id="p2">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:16px">处理历史</div>
+      <div id="hist-list"><div style="text-align:center;color:#94A3B8;padding:40px">暂无记录</div></div>
+    </div>
+  </div>
+
+  <!-- ④ 订阅页 -->
+  <div class="page" id="p3">
+    <div class="card">
+      <div style="font-size:16px;font-weight:700;margin-bottom:4px">订阅套餐</div>
+      <div style="font-size:13px;color:#64748B;margin-bottom:20px">每月最多处理 500 份文件，自然月重置</div>
+
+      <!-- 已订阅状态 -->
+      <div id="sub-status-box" style="display:none;background:#F0FDF4;border:1px solid #86EFAC;border-radius:12px;padding:20px;margin-bottom:20px">
+        <div style="font-size:15px;font-weight:700;color:#166534;margin-bottom:10px">✅ 订阅中</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">当前套餐</div><div style="font-weight:600;font-size:13px" id="sub-plan-name">—</div></div>
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">到期时间</div><div style="font-weight:600;font-size:13px" id="sub-expires">—</div></div>
+          <div><div style="font-size:11px;color:#94A3B8;margin-bottom:3px">账号</div><div style="font-weight:600;font-size:12px" id="sub-phone">—</div></div>
+        </div>
+      </div>
+
+      <!-- 套餐列表 -->
+      <div id="sub-plans">
+        <div class="plan-row">
+          <div class="plan">
+            <div class="plan-name">月付</div>
+            <div class="plan-price">¥299<span>/月</span></div>
+            <div class="plan-save">&nbsp;</div>
+            <button class="plan-btn" id="pb-monthly" onclick="selectPlan('monthly')">选择月付</button>
+          </div>
+          <div class="plan hot">
+            <div class="plan-name" style="color:#2563EB;font-weight:700">⭐ 季付 推荐</div>
+            <div class="plan-price">¥799<span>/季</span></div>
+            <div class="plan-save">约¥266/月，季付更省</div>
+            <button class="plan-btn" id="pb-quarterly" onclick="selectPlan('quarterly')">选择季付</button>
+          </div>
+          <div class="plan">
+            <div class="plan-name">年付</div>
+            <div class="plan-price">¥2599<span>/年</span></div>
+            <div class="plan-save">约¥216/月，年付最划算</div>
+            <button class="plan-btn" id="pb-yearly" onclick="selectPlan('yearly')">选择年付</button>
+          </div>
+        </div>
+
+        <!-- 支付框 -->
+        <div class="pay-box" id="pay-box">
+          <div style="font-size:15px;font-weight:700;margin-bottom:4px" id="pay-title">—</div>
+          <div style="font-size:22px;font-weight:800;color:#07C160;margin-bottom:6px" id="pay-amount">—</div>
+          <div style="font-size:12px;color:#94A3B8;margin-bottom:20px">微信扫码支付 · 支付后自动开通</div>
+          <div id="pay-loading" style="padding:30px 0;color:#94A3B8;font-size:14px">
+            <div style="width:24px;height:24px;border:3px solid #07C160;border-top-color:transparent;border-radius:50%;animation:sp 0.8s linear infinite;margin:0 auto 10px"></div>
+            正在生成支付码…
+          </div>
+          <div id="pay-qr-wrap" style="display:none">
+            <div style="font-size:12px;color:#475569;margin-bottom:10px;font-weight:600">💚 微信扫码付款</div>
+            <div id="pay-qr" style="display:inline-block;padding:10px;background:#fff;border:1px solid #E2E8F0;border-radius:8px"></div>
+            <div style="margin-top:12px;font-size:12px;color:#94A3B8">请在 <span id="pay-countdown" style="color:#0F172A;font-weight:700">15:00</span> 内完成支付</div>
+            <div style="margin-top:16px">
+              <button id="pay-confirm-btn" onclick="checkPayStatus()" style="padding:10px 32px;background:#07C160;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">✅ 我已完成支付</button>
+              <div style="font-size:12px;color:#94A3B8;margin-top:6px">支付完成后点击此按钮验证</div>
+            </div>
+          </div>
+          <div id="pay-error" style="display:none;padding:12px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;color:#DC2626;font-size:13px;margin-top:12px"></div>
+          <div id="pay-success" style="display:none;padding:20px;background:#F0FDF4;border:1px solid #86EFAC;border-radius:8px">
+            <div style="font-size:24px;margin-bottom:8px">🎉</div>
+            <div style="font-size:15px;font-weight:700;color:#166534;margin-bottom:12px">支付成功！账号已开通</div>
+            <button onclick="location.reload()" style="padding:8px 24px;background:#16A34A;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">刷新页面</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 权益说明 -->
+      <div style="background:#F8FAFC;border-radius:8px;padding:16px;font-size:12px;color:#64748B;line-height:2">
+        ✦ 每月500份文件处理额度，自然月重置<br>
+        ✦ 支持4种排版模板，持续更新<br>
+        ✦ 处理结果直接下载Word，无需人工干预<br>
+        ✦ 咨询：<a href="tel:17661369798" style="color:#2563EB">17661369798</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const TOKEN = localStorage.getItem("wj_token");
+if (!TOKEN) { location.href = "/"; throw new Error(); }
+
+let USER = null;
+let currentDocId = null;
+let currentTemplate = "business";
+let __currentOrder = null;
+let __countdownTimer = null;
+let __pollTimer = null;
+
+const PLANS_INFO = {
+  monthly:   { name: "基础版·月付", amount: "¥299" },
+  quarterly: { name: "基础版·季付", amount: "¥799" },
+  yearly:    { name: "基础版·年付", amount: "¥2599" },
+};
+
+function toast(msg, ok=true) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.style.background = ok ? "#166534" : "#7F1D1D";
+  t.style.color = ok ? "#86EFAC" : "#FCA5A5";
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 2500);
+}
+
+function go(i) {
+  document.querySelectorAll(".page").forEach((p,j) => p.className = "page" + (j===i?" on":""));
+  document.querySelectorAll(".tab").forEach((t,j) => t.className = "tab" + (j===i?" on":""));
+  if (i === 2) loadHistory();
+}
+
+function logout() {
+  localStorage.removeItem("wj_token");
+  localStorage.removeItem("wj_user");
+  location.href = "/";
+}
+
+async function loadUser() {
+  try {
+    const r = await fetch("/api/me", { headers: { Authorization: "Bearer " + TOKEN } });
+    if (!r.ok) { localStorage.removeItem("wj_token"); location.href = "/"; return; }
+    USER = await r.json();
+    document.getElementById("user-phone").textContent = USER.phone;
+    const sEl = document.getElementById("user-status");
+    const sMap = { active:["s-active","已订阅"], inactive:["s-inactive","未订阅"], expired:["s-expired","已过期"] };
+    const [cls, txt] = sMap[USER.status] || ["s-inactive","未知"];
+    sEl.className = "status-badge " + cls; sEl.textContent = txt;
+
+    // 状态栏
+    ["bar-active","trial-bar","paywall"].forEach(id => {
+      const el = document.getElementById(id); if(el) el.style.display = "none";
+    });
+    if (USER.status === "active") {
+      const bar = document.getElementById("bar-active");
+      bar.style.display = "flex";
+      document.getElementById("bar-used").textContent = USER.monthUses || 0;
+      document.getElementById("bar-remaining").textContent = USER.monthRemaining || 500;
+      document.getElementById("bar-expires").textContent = USER.expires || "永久";
+      // 订阅页
+      document.getElementById("sub-status-box").style.display = "block";
+      document.getElementById("sub-plan-name").textContent = PLANS_INFO[USER.plan]?.name || USER.plan || "—";
+      document.getElementById("sub-expires").textContent = USER.expires ? "到期：" + USER.expires : "长期有效";
+      document.getElementById("sub-phone").textContent = USER.phone;
+    } else if (USER.freeRemaining > 0) {
+      const bar = document.getElementById("trial-bar");
+      bar.style.display = "flex";
+      document.getElementById("trial-count").textContent = USER.freeRemaining;
+    } else {
+      document.getElementById("paywall").style.display = "block";
+    }
+
+    if (location.search.includes("pay=success")) history.replaceState(null, "", "/app");
+  } catch(e) { location.href = "/"; }
+}
+
+// ── 模板选择 ──────────────────────────────────────────
+function selectTpl(key) {
+  document.querySelectorAll(".tpl").forEach(t => t.classList.remove("on"));
+  document.getElementById("tpl-" + key)?.classList.add("on");
+  currentTemplate = key;
+}
+
+// ── 拖拽 ─────────────────────────────────────────────
+const dz = document.getElementById("dz");
+dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("drag"); });
+dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+dz.addEventListener("drop", e => { e.preventDefault(); dz.classList.remove("drag"); if(e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]); });
+
+// ── 处理文件 ──────────────────────────────────────────
+async function handleFile(file) {
+  if (!file) return;
+  if (!/\.(docx|doc)$/i.test(file.name)) {
+    showErr("请上传 .docx 格式的文件");
+    return;
+  }
+
+  // 检查权限
+  if (USER?.status !== "active" && (USER?.freeRemaining || 0) <= 0) {
+    go(3); return;
+  }
+
+  showErr("");
+  document.getElementById("proc-status").style.display = "block";
+  document.getElementById("proc-msg").textContent = "正在上传并分析文件结构…";
+  document.getElementById("dzt").textContent = file.name;
+
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("template", currentTemplate);
+
+  try {
+    const r = await fetch("/api/process", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + TOKEN },
+      body: formData,
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || "处理失败");
+
+    currentDocId = d.docId;
+    document.getElementById("proc-status").style.display = "none";
+    document.getElementById("dzt").textContent = "拖拽上传 或 点击选择文件";
+
+    // 更新用量
+    await loadUser();
+
+    // 渲染预览
+    renderPreview(d);
+    go(1);
+    toast("排版完成，可下载文件");
+  } catch(e) {
+    document.getElementById("proc-status").style.display = "none";
+    document.getElementById("dzt").textContent = "拖拽上传 或 点击选择文件";
+    showErr("处理失败：" + e.message);
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById("err-box");
+  el.textContent = msg;
+  el.style.display = msg ? "block" : "none";
+}
+
+// ── 预览渲染 ──────────────────────────────────────────
+function renderPreview(d) {
+  const tplNames = { business:"通用商务文档", official:"政府公文格式", contract:"合同协议格式", technical:"技术报告格式" };
+  document.getElementById("res-title").textContent = d.fileName;
+  document.getElementById("res-sub").textContent = "模板：" + (tplNames[d.template] || d.template) + " · 共 " + d.structure.length + " 个段落";
+  document.getElementById("dl-btn").dataset.docId = d.docId;
+
+  const tagMap = { h1:"tag-h1 struct-h1", h2:"tag-h2 struct-h2", h3:"tag-h3 struct-h3", body:"tag-body struct-body", list:"tag-body struct-list" };
+  const labelMap = { h1:"主标题", h2:"章节", h3:"小节", body:"正文", list:"列表" };
+
+  document.getElementById("struct-preview").innerHTML = d.structure.slice(0, 80).map(item => {
+    const cls = tagMap[item.type] || "tag-body struct-body";
+    const label = labelMap[item.type] || item.type;
+    const num = item.numbering ? `<span style="color:#2563EB;font-weight:600;margin-right:4px">${item.numbering}</span>` : "";
+    const text = (item.text || "").slice(0, 60) + ((item.text||"").length > 60 ? "…" : "");
+    return `<div class="struct-item ${cls}">
+      <span class="struct-tag ${cls.split(' ')[0]}">${label}</span>
+      <span>${num}${text}</span>
+    </div>`;
+  }).join("") + (d.structure.length > 80 ? `<div style="text-align:center;color:#94A3B8;font-size:12px;padding:8px">…共 ${d.structure.length} 个段落，下载后查看完整内容</div>` : "");
+}
+
+// ── 下载 ─────────────────────────────────────────────
+function downloadResult() {
+  const docId = currentDocId || document.getElementById("dl-btn").dataset.docId;
+  if (!docId) return;
+  const a = document.createElement("a");
+  a.href = "/api/download/" + docId;
+  a.click();
+}
+
+// ── 历史记录 ──────────────────────────────────────────
+async function loadHistory() {
+  try {
+    const r = await fetch("/api/documents", { headers: { Authorization: "Bearer " + TOKEN } });
+    const docs = await r.json();
+    const container = document.getElementById("hist-list");
+    if (!docs.length) { container.innerHTML = '<div style="text-align:center;color:#94A3B8;padding:40px">暂无记录</div>'; return; }
+    container.innerHTML = docs.map(d => {
+      const statusCls = { done:"hs-done", failed:"hs-failed", processing:"hs-processing" }[d.status] || "hs-processing";
+      const statusTxt = { done:"已完成", failed:"失败", processing:"处理中" }[d.status] || d.status;
+      return `<div class="hist-item">
+        <div class="hist-icon">📄</div>
+        <div class="hist-info">
+          <div class="hist-name">${d.file_name}</div>
+          <div class="hist-meta">${d.templateName} · ${(d.created_at||"").slice(0,16)}</div>
+        </div>
+        <span class="hist-status ${statusCls}">${statusTxt}</span>
+        ${d.status==="done" ? `<button class="btn sm pri" onclick="downloadDoc(${d.id})">下载</button>` : ""}
+      </div>`;
+    }).join("");
+  } catch(e) {}
+}
+
+function downloadDoc(docId) {
+  const a = document.createElement("a");
+  a.href = "/api/download/" + docId;
+  a.click();
+}
+
+// ── 支付 ─────────────────────────────────────────────
+async function selectPlan(key) {
+  document.querySelectorAll(".plan-btn").forEach(b => b.classList.remove("plan-btn-active"));
+  document.getElementById("pb-" + key)?.classList.add("plan-btn-active");
+  const p = PLANS_INFO[key];
+  document.getElementById("pay-title").textContent = p.name;
+  document.getElementById("pay-amount").textContent = p.amount;
+
+  const box = document.getElementById("pay-box");
+  box.style.display = "block";
+  box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  document.getElementById("pay-loading").style.display = "block";
+  document.getElementById("pay-qr-wrap").style.display = "none";
+  document.getElementById("pay-error").style.display = "none";
+  document.getElementById("pay-success").style.display = "none";
+
+  if (__pollTimer) { clearInterval(__pollTimer); __pollTimer = null; }
+  if (__countdownTimer) { clearInterval(__countdownTimer); __countdownTimer = null; }
+
+  try {
+    const r = await fetch("/api/order/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + TOKEN },
+      body: JSON.stringify({ plan: key }),
+    });
+    const d = await r.json();
+    if (!d.ok || (!d.qrUrl && !d.mock)) throw new Error(d.error || "创建订单失败");
+
+    __currentOrder = d.outTradeNo;
+
+    if (d.mock) {
+      document.getElementById("pay-loading").style.display = "none";
+      document.getElementById("pay-qr-wrap").style.display = "block";
+      document.getElementById("pay-confirm-btn").textContent = "🧪 演示：模拟支付";
+      document.getElementById("pay-confirm-btn").onclick = () => { location.href = d.payUrl; };
+      document.getElementById("pay-qr").innerHTML = `<div style="width:160px;height:160px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f0fdf4;border-radius:8px;font-size:13px;color:#166534;gap:8px"><span style="font-size:28px">🧪</span>演示模式</div>`;
+      return;
+    }
+
+    document.getElementById("pay-qr").innerHTML = `<img src="${d.qrUrl}" style="width:180px;height:180px;border-radius:6px;display:block" alt="支付二维码">`;
+    document.getElementById("pay-loading").style.display = "none";
+    document.getElementById("pay-qr-wrap").style.display = "block";
+    document.getElementById("pay-confirm-btn").textContent = "✅ 我已完成支付";
+    document.getElementById("pay-confirm-btn").onclick = checkPayStatus;
+
+    let seconds = 900;
+    __countdownTimer = setInterval(() => {
+      seconds--;
+      const m = String(Math.floor(seconds/60)).padStart(2,"0");
+      const s = String(seconds%60).padStart(2,"0");
+      const el = document.getElementById("pay-countdown");
+      if (el) el.textContent = m + ":" + s;
+      if (seconds <= 0) clearInterval(__countdownTimer);
+    }, 1000);
+
+    let pollCount = 0;
+    __pollTimer = setInterval(async () => {
+      pollCount++;
+      if (pollCount > 36) { clearInterval(__pollTimer); return; }
+      if (await queryPaid(__currentOrder)) {
+        clearInterval(__pollTimer); clearInterval(__countdownTimer);
+        showPaySuccess();
+      }
+    }, 5000);
+
+  } catch(e) {
+    document.getElementById("pay-loading").style.display = "none";
+    const err = document.getElementById("pay-error");
+    err.textContent = "创建订单失败：" + e.message;
+    err.style.display = "block";
+  }
+}
+
+async function queryPaid(order) {
+  try {
+    const r = await fetch("/api/order/status?order=" + order, { headers: { Authorization: "Bearer " + TOKEN } });
+    return (await r.json()).paid === true;
+  } catch { return false; }
+}
+
+async function checkPayStatus() {
+  const btn = document.getElementById("pay-confirm-btn");
+  btn.disabled = true; btn.textContent = "查询中…";
+  if (await queryPaid(__currentOrder)) {
+    clearInterval(__pollTimer); clearInterval(__countdownTimer);
+    showPaySuccess();
+  } else {
+    btn.disabled = false; btn.textContent = "✅ 我已完成支付";
+    const err = document.getElementById("pay-error");
+    err.textContent = "暂未查到支付记录，稍等几秒后再点击。如有问题请联系：17661369798";
+    err.style.display = "block";
+    setTimeout(() => err.style.display = "none", 5000);
+  }
+}
+
+function showPaySuccess() {
+  document.getElementById("pay-qr-wrap").style.display = "none";
+  document.getElementById("pay-success").style.display = "block";
+}
+
+loadUser();
+</script>
+</body>
+</html>
